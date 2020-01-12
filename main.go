@@ -5,13 +5,13 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 	tb "gopkg.in/tucnak/telebot.v2"
 	"log"
+	"os"
 	boltdb "telegrambot/boltdb"
 	"telegrambot/consts"
 	ck "telegrambot/customKeyboard"
 	"telegrambot/gsheets"
 	reminder "telegrambot/reminder"
 	"time"
-	"os"
 )
 
 const Format = "2006-01-02"
@@ -30,6 +30,7 @@ func main() {
 	srv := gsheets.InitConnection()
 	dbService := boltdb.InitializeDB()
 	reminder.ScheduleReminder(b)
+	gsheets.StartCron(srv, dbService)
 	allDone := ck.AddCustomKeys()
 
 	fmt.Println("Connected to Google Sheets API")

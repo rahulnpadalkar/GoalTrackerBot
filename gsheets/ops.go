@@ -21,59 +21,31 @@ var colorMap = map[int64][]float64{
 	3: {1, 255, 255, 255},
 }
 
-var startRow int64 = 12
+type Range struct {
+	startRowIndex, startColumIndex, endRowIndex, endColumnIndex int64
+}
+
+type CellFormat struct {
+	cellValue  string
+	color      sheets.Color
+	border     sheets.Borders
+	alignment  string
+	textFormat sheets.TextFormat
+}
+
+var standardBorder sheets.Border = sheets.Border{
+	Color: &sheets.Color{
+		Alpha: 1,
+		Blue:  0,
+		Red:   0,
+		Green: 0,
+	},
+	Style: "SOLID",
+}
 
 var spreadSheetID = os.Getenv("SPREADSHEET_ID")
 
-func GetAllData(spreadSheet *Spreadsheet) {
-
-	currMonth := utils.GetCurrentMonth()
-	dataSpreadSheet, err := spreadSheet.Service.Spreadsheets.Values.Get(
-		spreadSheetID,
-		currMonth,
-	).Do()
-
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(dataSpreadSheet)
-}
-
-func BatchAppend(values []string, service *Spreadsheet) (bool, error) {
-
-	var appendCellRequest sheets.AppendCellsRequest
-	rows, err := returnRowData(values)
-
-	if err != nil {
-		log.Fatal(err)
-		return false, err
-	}
-
-	appendCellRequest = sheets.AppendCellsRequest{
-		SheetId: 0,
-		Fields:  "*",
-		Rows:    rows,
-	}
-	request := sheets.Request{
-		AppendCells: &appendCellRequest,
-	}
-	bur := sheets.BatchUpdateSpreadsheetRequest{
-		Requests: []*sheets.Request{&request},
-	}
-
-	res, err := service.Service.Spreadsheets.BatchUpdate(
-		spreadSheetID,
-		&bur,
-	).Do()
-	fmt.Println(res)
-	if err != nil {
-		log.Fatal(err)
-		return false, err
-	}
-	return true, nil
-}
-
-func returnRowData(values []string) ([]*sheets.RowData, error) {
+func returnRowData(values []string) []*sheets.RowData {
 
 	var cellDatas []*sheets.CellData
 	today := utils.GetTodysDate()
@@ -84,7 +56,6 @@ func returnRowData(values []string) ([]*sheets.RowData, error) {
 
 		if err != nil {
 			log.Fatal(err)
-			return nil, err
 		}
 		cellDatas = append(cellDatas, returnCellData(colorMap[index], ""))
 	}
@@ -93,51 +64,43 @@ func returnRowData(values []string) ([]*sheets.RowData, error) {
 		Values: cellDatas,
 	}
 
-	return []*sheets.RowData{&row}, nil
+	return []*sheets.RowData{&row}
 
 }
 
-func formattedBatchAppend(values []string, service *Spreadsheet) (bool, error) {
+func formattedBatchAppend(values []string, service *Spreadsheet, selectedRange Range) (bool, error) {
 
-	var updateCellRequest sheets.UpdateCellsRequest
-
-	rows, err := returnRowData(values)
-
-	if err != nil {
-		log.Fatal(err)
-		return false, err
-	}
-
-	updateCellRequest = sheets.UpdateCellsRequest{
-		Rows:   rows,
-		Fields: "*",
-		Range: &sheets.GridRange{
-			SheetId:          0,
-			StartColumnIndex: 1,
-			EndColumnIndex:   8,
-			StartRowIndex:    11,
-		},
-	}
-
-	request := sheets.Request{
-		UpdateCells: &updateCellRequest,
-	}
-	bur := sheets.BatchUpdateSpreadsheetRequest{
-		Requests: []*sheets.Request{&request},
-	}
-
-	res, err := service.Service.Spreadsheets.BatchUpdate(
+	_, err := service.Service.Spreadsheets.BatchUpdate(
 		spreadSheetID,
-		&bur,
+
+		&sheets.BatchUpdateSpreadsheetRequest{
+
+			Requests: []*sheets.Request{
+
+				&sheets.Request{
+
+					UpdateCells: &sheets.UpdateCellsRequest{
+
+						Rows:   returnRowData(values),
+						Fields: "*",
+						Range: &sheets.GridRange{
+							StartColumnIndex: selectedRange.startColumIndex,
+							EndColumnIndex:   selectedRange.endColumnIndex,
+							StartRowIndex:    selectedRange.startRowIndex,
+							EndRowIndex:      selectedRange.endRowIndex,
+						},
+					},
+				},
+			},
+		},
 	).Do()
-	fmt.Println(res)
+
 	if err != nil {
 		log.Fatal(err)
 		return false, err
 	}
 
 	return true, nil
-
 }
 
 func returnCellData(color []float64, data string) *sheets.CellData {
@@ -158,49 +121,26 @@ func returnCellData(color []float64, data string) *sheets.CellData {
 
 }
 
-func Append(values []string, service *Spreadsheet) (bool, error) {
-
-	today := utils.GetTodysDate()
-	sheetName := utils.GetCurrentMonth()
-	var dataArray = make([]interface{}, 0)
-	dataArray = append(dataArray, today)
-	for _, v := range values {
-
-		index, err := strconv.ParseInt(v, 10, 64)
-
-		if err != nil {
-			log.Fatal(err)
-			return false, err
-		}
-		dataArray = append(dataArray, colorMap[index])
-	}
-
-	var valueRange sheets.ValueRange
-	currRow := strconv.FormatInt(startRow, 10)
-	rangeInfo := sheetName + "!B" + currRow + ":H"
-	valueRange.Values = append(valueRange.Values, dataArray)
-
-	_, err := service.Service.Spreadsheets.Values.Append(
-		spreadSheetID,
-		rangeInfo,
-		&valueRange,
-	).ValueInputOption("USER_ENTERED").Do()
-
-	if err != nil {
-		log.Fatal(err)
-		return false, err
-	}
-
-	return true, nil
-
-}
-
 func InsertNewRecord(text string, service *Spreadsheet, dbService *bolt.DBService) bool {
 
 	dataFields := strings.Fields(text)
 	dataFields = dataFields[1:]
+	currRowIndex, err := strconv.Atoi(dbService.GetValue("currRowIndex"))
 
-	res, err := formattedBatchAppend(dataFields, service)
+	if err != nil {
+		log.Fatal(err)
+		return false
+	}
+	res, err := formattedBatchAppend(
+		dataFields,
+		service,
+		Range{
+			endColumnIndex:  8,
+			startColumIndex: 1,
+			startRowIndex:   int64(currRowIndex),
+			endRowIndex:     int64(currRowIndex + 1),
+		},
+	)
 
 	if err != nil {
 		return res
@@ -209,9 +149,110 @@ func InsertNewRecord(text string, service *Spreadsheet, dbService *bolt.DBServic
 	lastUpdateTime, err := time.Parse(consts.DateFormat, dbService.GetValue("lastUpdated"))
 
 	if err == nil && utils.ShouldRowUpdate(lastUpdateTime) {
-		startRow = startRow + 2
+		dbService.InsertValue("currRowIndex", strconv.Itoa(currRowIndex+2))
 	} else if err != nil {
 		return false
 	}
 	return res
+}
+
+func AddNewSheet(service *Spreadsheet) (bool, error) {
+
+	bur := sheets.BatchUpdateSpreadsheetRequest{
+		Requests: []*sheets.Request{
+			&sheets.Request{
+				AddSheet: addSheetRequest(),
+			},
+
+			&sheets.Request{
+				MergeCells: mergeCellRequest(
+					Range{
+						startRowIndex:   1,
+						startColumIndex: 1,
+						endRowIndex:     2,
+						endColumnIndex:  8,
+					},
+				),
+			},
+
+			&sheets.Request{
+				UpdateCells: formatRangeCell(
+					Range{
+						startRowIndex:   1,
+						startColumIndex: 1,
+						endRowIndex:     2,
+						endColumnIndex:  2,
+					},
+					CellFormat{
+						cellValue: (strings.ToUpper(time.Now().Month().String()) + " 2020 Tracking"),
+						color: sheets.Color{
+							Alpha: 1,
+							Blue:  float64(244) / 255,
+							Red:   float64(165) / 255,
+							Green: float64(194) / 255,
+						},
+						border: sheets.Borders{
+							Top:    &standardBorder,
+							Bottom: &standardBorder,
+							Left:   &standardBorder,
+							Right:  &standardBorder,
+						},
+						alignment: "CENTER",
+						textFormat: sheets.TextFormat{
+							Bold: true,
+						},
+					},
+				),
+			},
+
+			&sheets.Request{
+
+				UpdateCells: formatRangeCells(
+					Range{
+						startRowIndex:   3,
+						startColumIndex: 1,
+						endRowIndex:     4,
+						endColumnIndex:  8,
+					},
+
+					CellFormat{
+						border: sheets.Borders{
+							Top:    &standardBorder,
+							Bottom: &standardBorder,
+							Left:   &standardBorder,
+							Right:  &standardBorder,
+						},
+						alignment: "CENTER",
+						textFormat: sheets.TextFormat{
+							Bold: true,
+						},
+					},
+					[]string{
+						"Date",
+						"Tarka Labs Work",
+						"Side Project",
+						"Exercise",
+						"Meditation",
+						"Reading",
+						"NF",
+					},
+					int64(time.Now().Month()),
+				),
+			},
+		},
+	}
+
+	res, err := service.Service.Spreadsheets.BatchUpdate(
+		spreadSheetID,
+		&bur,
+	).Do()
+
+	fmt.Println(res)
+	if err != nil {
+		log.Fatal(err)
+		return false, err
+	}
+
+	return true, nil
+
 }
