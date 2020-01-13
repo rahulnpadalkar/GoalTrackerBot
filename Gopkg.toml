@@ -51,5 +51,4 @@
 
 [metadata.heroku]
   root-package = "telegrambot"
-  go-version = "1.13.4"
   ensure = "true"
