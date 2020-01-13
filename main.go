@@ -2,16 +2,16 @@ package main
 
 import (
 	"fmt"
-	_ "github.com/joho/godotenv/autoload"
-	tb "gopkg.in/tucnak/telebot.v2"
 	"log"
 	"os"
 	boltdb "telegrambot/boltdb"
 	"telegrambot/consts"
 	ck "telegrambot/customKeyboard"
-	"telegrambot/gsheets"
 	reminder "telegrambot/reminder"
 	"time"
+
+	_ "github.com/joho/godotenv/autoload"
+	tb "gopkg.in/tucnak/telebot.v2"
 )
 
 const Format = "2006-01-02"
@@ -35,11 +35,11 @@ func main() {
 		return
 	}
 
-	srv := gsheets.InitConnection()
+	//srv := gsheets.InitConnection()
 	dbService := boltdb.InitializeDB()
 	defer dbService.CloseConnection()
 	reminder.ScheduleReminder(b)
-	gsheets.StartCron(srv, dbService)
+	//gsheets.StartCron(srv, dbService)
 	allDone := ck.AddCustomKeys()
 
 	fmt.Println("Connected to Google Sheets API")
@@ -49,7 +49,7 @@ func main() {
 	})
 
 	b.Handle(&allDone, func(m *tb.Message) {
-		gsheets.InsertNewRecord("/log 0 0 0 0 0 0", srv, dbService)
+		//gsheets.InsertNewRecord("/log 0 0 0 0 0 0", srv, dbService)
 		dbService.InsertValue("lastUpdated", time.Now().Format(consts.DateFormat))
 	})
 
@@ -64,7 +64,7 @@ func main() {
 	})
 
 	b.Handle("/log", func(m *tb.Message) {
-		gsheets.InsertNewRecord(m.Text, srv, dbService)
+		//gsheets.InsertNewRecord(m.Text, srv, dbService)
 		dbService.InsertValue("lastUpdated", time.Now().Format(consts.DateFormat))
 	})
 
