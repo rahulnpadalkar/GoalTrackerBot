@@ -1,1 +1,1 @@
-web:telegrambot
+web:main

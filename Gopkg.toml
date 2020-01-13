@@ -50,5 +50,5 @@
   unused-packages = true
 
 [metadata.heroku]
-  root-package = "github.com/rahulnpadalkar/GoalTrackerBot"
+  root-package = "telegrambot"
   ensure = "true"
