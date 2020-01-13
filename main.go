@@ -50,7 +50,7 @@ func main() {
 	})
 
 	b.Handle(&allDone, func(m *tb.Message) {
-		//gsheets.InsertNewRecord("/log 0 0 0 0 0 0", srv, dbService)
+		gsheets.InsertNewRecord("/log 0 0 0 0 0 0", srv, dbService)
 		dbService.InsertValue("lastUpdated", time.Now().Format(consts.DateFormat))
 	})
 
@@ -65,7 +65,7 @@ func main() {
 	})
 
 	b.Handle("/log", func(m *tb.Message) {
-		//gsheets.InsertNewRecord(m.Text, srv, dbService)
+		gsheets.InsertNewRecord(m.Text, srv, dbService)
 		dbService.InsertValue("lastUpdated", time.Now().Format(consts.DateFormat))
 	})
 
