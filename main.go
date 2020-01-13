@@ -29,6 +29,7 @@ func main() {
 
 	srv := gsheets.InitConnection()
 	dbService := boltdb.InitializeDB()
+	defer dbService.CloseConnection()
 	reminder.ScheduleReminder(b)
 	gsheets.StartCron(srv, dbService)
 	allDone := ck.AddCustomKeys()
@@ -60,8 +61,6 @@ func main() {
 	})
 
 	b.Start()
-
-	defer dbService.CloseConnection()
 }
 
 func addKeyBoard() {
