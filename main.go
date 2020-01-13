@@ -17,9 +17,17 @@ import (
 const Format = "2006-01-02"
 
 func main() {
+
+	webhook := &tb.Webhook{
+		Listen: ":" + os.Getenv("PORT"),
+		Endpoint: &tb.WebhookEndpoint{
+			PublicURL: os.Getenv("PUBLIC_URL"),
+		},
+	}
+
 	b, err := tb.NewBot(tb.Settings{
 		Token:  os.Getenv("PRIVATE_BOT_TOKEN"),
-		Poller: &tb.LongPoller{Timeout: 10 * time.Second},
+		Poller: webhook,
 	})
 
 	if err != nil {
