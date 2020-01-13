@@ -7,6 +7,7 @@ import (
 	boltdb "telegrambot/boltdb"
 	"telegrambot/consts"
 	ck "telegrambot/customKeyboard"
+	"telegrambot/gsheets"
 	reminder "telegrambot/reminder"
 	"time"
 
@@ -35,11 +36,11 @@ func main() {
 		return
 	}
 
-	//srv := gsheets.InitConnection()
+	srv := gsheets.InitConnection()
 	dbService := boltdb.InitializeDB()
 	defer dbService.CloseConnection()
 	reminder.ScheduleReminder(b)
-	//gsheets.StartCron(srv, dbService)
+	gsheets.StartCron(srv, dbService)
 	allDone := ck.AddCustomKeys()
 
 	fmt.Println("Connected to Google Sheets API")
